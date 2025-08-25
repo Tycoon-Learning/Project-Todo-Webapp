@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>To-Do App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <h1>To-Do List</h1>
+
+    <form id="add-form">
+      <input id="task-input" type="text" placeholder="Add a new task" required/>
+      <button type="submit">Add</button>
+    </form>
+
+    <div id="list"></div>
+
+    <div id="summary">
+      <span id="total">Total: 0</span> |
+      <span id="completed">Completed: 0</span> |
+      <span id="pending">Pending: 0</span>
+    </div>
+  </div>
+
+  <script>
+    const list = document.getElementById("list"),
+          taskInput = document.getElementById("task-input"),
+          totalEl = document.getElementById("total"),
+          completedEl = document.getElementById("completed"),
+          pendingEl = document.getElementById("pending");
+
+    let todos = [];
+
+    // Generic fetch wrapper
+    const api = (url, options) => fetch(url, options).then(r => r.json());
+
+    const loadTodos = async () => { todos = await api("/todos"); show(); };
+    const addTodo   = async task => { todos.unshift(await api("/todos",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({task})})); show(); };
+    const updateTodo= async (id,data)=>{ const t=await api("/todos/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}); todos=todos.map(x=>x.id===id?t:x); show(); };
+    const deleteTodo= async id => { await fetch("/todos/"+id,{method:"DELETE"}); todos=todos.filter(x=>x.id!==id); show(); };
+
+    function show() {
+      list.innerHTML = todos.map(t=>`
+        <div class="todo ${t.status==='completed'?'completed':''}">
+          <label>
+            <input type="checkbox" ${t.status==='completed'?'checked':''}/>
+            <span class="task-text">${t.task}</span>
+          </label>
+          <button class="delete">Delete</button>
+        </div>`).join("");
+
+      // Attach events after showing
+      list.querySelectorAll("input").forEach((chk,i)=>chk.onchange=()=>updateTodo(todos[i].id,{status:chk.checked?"completed":"pending"}));
+      list.querySelectorAll(".delete").forEach((btn,i)=>btn.onclick=()=>deleteTodo(todos[i].id));
+
+      // Summary
+      const done = todos.filter(t=>t.status==="completed").length;
+      totalEl.textContent = "Total: " + todos.length;
+      completedEl.textContent = "Completed: " + done;
+      pendingEl.textContent = "Pending: " + (todos.length - done);
+    }
+
+    document.getElementById("add-form").onsubmit = e => {
+      e.preventDefault();
+      if(taskInput.value.trim()) addTodo(taskInput.value.trim());
+      taskInput.value = ""; taskInput.focus();
+    };
+
+    loadTodos();
+  </script>
+</body>
+</html>
